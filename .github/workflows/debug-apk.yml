@@ -1,0 +1,72 @@
+name: Debug APK
+
+# Builds a signed, debuggable APK from any branch so changes can be tested on a
+# device before they are merged or released. Does not publish anything.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debug-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Restore signing keystore
+        env:
+          BIOPAY_RELEASE_KEYSTORE_BASE64: ${{ secrets.BIOPAY_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$BIOPAY_RELEASE_KEYSTORE_BASE64"
+          printf '%s' "$BIOPAY_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biopay-release.keystore"
+
+      - name: Build signed debug APK
+        env:
+          BIOPAY_RELEASE_STORE_FILE: ${{ runner.temp }}/biopay-release.keystore
+          BIOPAY_RELEASE_STORE_PASSWORD: ${{ secrets.BIOPAY_RELEASE_STORE_PASSWORD }}
+          BIOPAY_RELEASE_KEY_ALIAS: ${{ secrets.BIOPAY_RELEASE_KEY_ALIAS }}
+          BIOPAY_RELEASE_KEY_PASSWORD: ${{ secrets.BIOPAY_RELEASE_KEY_PASSWORD }}
+        run: |
+          ./gradlew lintDebug assembleDebug --warning-mode fail
+          APK_DIR="app/build/outputs/apk/debug"
+          SHORT=$(git rev-parse --short HEAD)
+          mv "$APK_DIR/app-debug.apk" "$APK_DIR/BioPay-debug-$SHORT.apk"
+          ls -lh "$APK_DIR"
+
+      # Debuggable on purpose: LogCapture and the in-app diagnostic export only run
+      # in debug builds, and this APK exists to be tested on a device.
+      - name: Verify signature
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/BioPay-debug-*.apk)
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --print-certs "$APK"
+          ENTRY=$(python3 -c "import zipfile,sys; print(zipfile.ZipFile(sys.argv[1]).read('META-INF/xposed/java_init.list').decode().strip())" "$APK")
+          test "$ENTRY" = "io.github.kiriashi.biopay.runtime.BioPayModule"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: BioPay-debug
+          if-no-files-found: error
+          retention-days: 30
+          path: app/build/outputs/apk/debug/BioPay-debug-*.apk

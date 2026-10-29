@@ -237,7 +237,7 @@ object SettingsDialog {
             setPadding(0, context.dp(16), 0, 0)
             addView(makeBtn(context, "关于", t.surfaceContainerHighest, t.onSurface, t.disabledRipple, context.dp(8)) {
                 try {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/kiriashi/BioPay")))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/xingmihai/BioPay")))
                 } catch (_: Throwable) {}
             })
             addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))

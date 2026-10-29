@@ -6,10 +6,10 @@
 
 <p>让支付应用轻松接入系统原生生物认证。</p>
 
-[![Release](https://img.shields.io/github/v/release/kiriashi/BioPay?style=flat)](https://github.com/kiriashi/BioPay/releases)
-[![Stars](https://img.shields.io/github/stars/kiriashi/BioPay?style=flat)](https://github.com/kiriashi/BioPay/stargazers)
+[![Release](https://img.shields.io/github/v/release/xingmihai/BioPay?style=flat)](https://github.com/xingmihai/BioPay/releases)
+[![Stars](https://img.shields.io/github/stars/xingmihai/BioPay?style=flat)](https://github.com/xingmihai/BioPay/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/Xposed-Modules-Repo/io.github.kiriashi.biopay/total?style=flat)](https://github.com/Xposed-Modules-Repo/io.github.kiriashi.biopay/releases)
-[![License](https://img.shields.io/github/license/kiriashi/BioPay?style=flat)](LICENSE)
+[![License](https://img.shields.io/github/license/xingmihai/BioPay?style=flat)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-10%2B-green.svg?style=flat)](https://developer.android.com)
 [![LSPosed](https://img.shields.io/badge/LSPosed-API%20102-purple.svg?style=flat)](https://github.com/LSPosed/LSPosed)
 [![Telegram](https://img.shields.io/badge/Telegram-交流群-blue.svg?style=flat)](https://t.me/biopaychat)
@@ -82,9 +82,9 @@ flowchart TD
 
 **问题反馈（Issue）**：
 如果遇到 Bug 或有功能建议，欢迎提交 Issue。提交前请按以下步骤操作：
-1. 从 [Releases](https://github.com/kiriashi/BioPay/releases) 下载 `-Debug.zip` 压缩包，解压后覆盖安装其中的 APK 并进行一遍问题复现，测试结束后覆盖安装正式版。
+1. 从 [Releases](https://github.com/xingmihai/BioPay/releases) 下载 `-Debug.zip` 压缩包，解压后覆盖安装其中的 APK 并进行一遍问题复现，测试结束后覆盖安装正式版。
 2. 在对应应用中打开「模块设置 → 异常诊断 → 导出」生成诊断日志，日志不会涉及任何个人敏感信息。
-3. 进入 [Issues](https://github.com/kiriashi/BioPay/issues) 选择**问题报告(Bug Report)**，并附上诊断日志以及相关信息后进行提交。
+3. 进入 [Issues](https://github.com/xingmihai/BioPay/issues) 选择**问题报告(Bug Report)**，并附上诊断日志以及相关信息后进行提交。
 
 **代码贡献（PR）**：
 如果您已有不错的改进方案，也欢迎提交 Pull Request！无论是修复 Bug、优化现有逻辑，还是实现新功能。
