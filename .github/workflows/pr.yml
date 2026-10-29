@@ -1,0 +1,52 @@
+name: PR
+
+# Keeps unit tests and lint inside the review loop. Publishing stays a manual
+# Release workflow, so main-branch pushes are handled there instead.
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test --warning-mode fail
+
+      - name: Run lint
+        run: ./gradlew lintDebug --warning-mode fail
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-reports
+          if-no-files-found: ignore
+          retention-days: 7
+          path: app/build/reports/tests

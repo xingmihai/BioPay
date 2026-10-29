@@ -19,18 +19,10 @@
 
 package io.github.kiriashi.biopay.storage
 
-import io.github.kiriashi.biopay.core.codec.XorCodec
-
-/** Obfuscated SharedPreferences and keystore identifiers. */
+/** SharedPreferences and keystore identifiers. */
 object PrefKeys {
-
-    private val prefNameE = intArrayOf(56, 76, 33, 126, 249, 44)
-    private val prefKeyOnE = intArrayOf(56, 76, 33, 114, 241)
-    private val prefKeyPwdE = intArrayOf(56, 76, 33, 109, 232, 47)
-    private val keystoreAliasE = intArrayOf(56, 76, 33, 118, 175)
-
-    val prefName by lazy { XorCodec.decode(prefNameE) }
-    val prefKeyOn by lazy { XorCodec.decode(prefKeyOnE) }
-    val prefKeyPwd by lazy { XorCodec.decode(prefKeyPwdE) }
-    val keystoreAlias by lazy { XorCodec.decode(keystoreAliasE) }
+    const val prefName = "bp_cfg"
+    const val prefKeyOn = "bp_on"
+    const val prefKeyPwd = "bp_pwd"
+    const val keystoreAlias = "bp_k0"
 }

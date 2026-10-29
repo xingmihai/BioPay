@@ -27,6 +27,7 @@ import android.security.KeyStoreException
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
+import android.security.keystore.UserNotAuthenticatedException
 import android.util.Base64
 import java.io.File
 import java.security.KeyStore
@@ -45,7 +46,9 @@ object PasswordCipher {
     private const val KEY_SIZE = 256
     private const val GCM_TAG_LENGTH = 128
     private const val IV_LENGTH = 12
-    private const val KEY_VERSION = "_compat_v3"
+    // Bumped from _compat_v3: the key is now bound to user authentication, so
+    // ciphertext written by the previous alias can no longer be decrypted.
+    private const val KEY_VERSION = "_auth_v5"
     private const val BOUND_PREFIX = "bp-app-v1:"
     private const val LEGACY_WECHAT_PACKAGE = "com.tencent.mm"
 
@@ -94,6 +97,17 @@ object PasswordCipher {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(KEY_SIZE)
+        // Auth-per-use: the Cipher stays locked until BiometricPrompt authorizes it,
+        // so a successful authentication is a cryptographic prerequisite, not just a
+        // step in the payment flow.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setUserAuthenticationParameters(
+                0,
+                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+            )
+        } else {
+            builder.setUserAuthenticationRequired(true)
+        }
         generator.init(builder.build())
         return generator.generateKey()
     }
@@ -191,16 +205,26 @@ object PasswordCipher {
                 if (bound) updateAAD(associatedData(packageName))
             }
             DecryptOperation(cipher, ciphertext)
+        } catch (locked: UserNotAuthenticatedException) {
+            // Auth-bound keys reject operations until the user authenticates. The
+            // Cipher still has to travel through BiometricPrompt before it can decrypt.
+            ModuleLog.w(locked) { "password decryption cipher is locked pending authentication" }
+            null
         } catch (e: Throwable) {
             ModuleLog.w(e) { "failed to prepare password decryption" }
             null
         }
     }
 
-    fun decryptToCharArray(operation: DecryptOperation): CharArray? {
+    /**
+     * Decrypts using the Cipher that BiometricPrompt authorized. This fails closed by
+     * design: an auth-bound key refuses to produce plaintext while it is locked, so a
+     * caller that never authenticated cannot reach the password.
+     */
+    fun decryptToCharArray(operation: DecryptOperation, authorized: Cipher): CharArray? {
         var bytes: ByteArray? = null
         return try {
-            bytes = operation.cipher.doFinal(operation.ciphertext)
+            bytes = authorized.doFinal(operation.ciphertext)
             if (bytes.size != PASSWORD_LENGTH || bytes.any { it.toInt() !in 48..57 }) return null
             CharArray(bytes.size) { i -> (bytes!![i].toInt() and 0xff).toChar() }
         } catch (e: Throwable) {

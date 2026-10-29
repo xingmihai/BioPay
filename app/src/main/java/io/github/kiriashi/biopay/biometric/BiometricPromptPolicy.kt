@@ -24,11 +24,21 @@ import android.os.Build
 
 /** Keep settings verification and payment verification on the same authentication policy. */
 internal object BiometricPromptPolicy {
-    fun configure(builder: BiometricPrompt.Builder, biometricType: Int): BiometricPrompt.Builder {
+    /**
+     * [requireCrypto] selects the authenticators that can unlock a Keystore key bound to
+     * user authentication. Weak biometrics cannot authorize a CryptoObject, so they stay
+     * available only for prompts that carry no crypto operation.
+     */
+    fun configure(
+        builder: BiometricPrompt.Builder,
+        biometricType: Int,
+        requireCrypto: Boolean = false
+    ): BiometricPrompt.Builder {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             builder.setAllowedAuthenticators(
-                if (biometricType == BiometricType.FINGERPRINT) {
-                    BiometricManager.Authenticators.BIOMETRIC_STRONG
+                if (requireCrypto || biometricType == BiometricType.FINGERPRINT) {
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
                 } else {
                     BiometricManager.Authenticators.BIOMETRIC_WEAK
                 }

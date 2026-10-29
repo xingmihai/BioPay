@@ -23,7 +23,9 @@ internal object PasswordVersionPolicy {
     const val AUTHENTICATED = 2
     const val WEAK_BIOMETRIC = 3
     const val COMPATIBLE = 4
-    const val current = COMPATIBLE
+    /** Ciphertext whose key is bound to user authentication; older records must be re-entered. */
+    const val AUTH_BOUND = 5
+    const val current = AUTH_BOUND
 
     fun requiresReentry(encodedPassword: String?, storedVersion: Int): Boolean =
         !encodedPassword.isNullOrEmpty() && storedVersion != current

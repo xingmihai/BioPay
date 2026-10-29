@@ -19,6 +19,7 @@ import io.github.kiriashi.biopay.runtime.AppRuntime
 import io.github.kiriashi.biopay.storage.PasswordCipher
 import io.github.kiriashi.biopay.storage.PaymentConfig
 import java.lang.ref.WeakReference
+import javax.crypto.Cipher
 
 object BiometricAuth {
     fun triggerBiometricAuth(
@@ -92,8 +93,12 @@ object BiometricAuth {
                     val builder = BiometricPrompt.Builder(activity)
                         .setTitle(BioPayPrompt.TITLE)
                         .setNegativeButton("取消", executor) { _, _ -> callback.cancel() }
-                    BiometricPromptPolicy.configure(builder, biometricType).build()
-                        .authenticate(attempt.signal, executor, callback)
+                    // The Cipher can only decrypt after BiometricPrompt authorizes it.
+                    BiometricPromptPolicy.configure(builder, biometricType, requireCrypto = true).build()
+                        .authenticate(
+                            BiometricPrompt.CryptoObject(operation.cipher),
+                            attempt.signal, executor, callback
+                        )
                     if (state.session.isCurrentAuthentication(attempt.id)) {
                         // INVISIBLE preserves external payment keyboard attachment and the active prompt.
                         keyboardView.visibility = View.INVISIBLE
@@ -154,6 +159,7 @@ object BiometricAuth {
         private val tasks = MainTasks()
         private val startedAt = SystemClock.uptimeMillis()
         private var operation: PasswordCipher.DecryptOperation? = operation
+        private var authorizedCipher: Cipher? = null
         private var password: CharArray? = null
         @Volatile private var ended = false
         private var authenticated = false
@@ -168,6 +174,7 @@ object BiometricAuth {
             tasks.onMain {
                 operation?.ciphertext?.fill(0)
                 operation = null
+                authorizedCipher = null
                 password?.fill('\u0000')
                 password = null
             }
@@ -201,6 +208,14 @@ object BiometricAuth {
                 stop("decryption operation unavailable")
                 return
             }
+            val cipher = result?.cryptoObject?.cipher
+            if (cipher == null) {
+                // The key is bound to authentication, so without an authorized Cipher
+                // there is no way to reach the plaintext. Fail closed.
+                stop("authorized cipher unavailable")
+                return
+            }
+            authorizedCipher = cipher
             authenticated = true
             state.session.holdInputMethodForInput()
             deadline = SystemClock.uptimeMillis() + INPUT_READY_TIMEOUT_MS
@@ -268,12 +283,14 @@ object BiometricAuth {
 
         private fun decrypt() {
             val pending = operation ?: run { stop("decryption operation unavailable"); return }
+            val authorized = authorizedCipher
+                ?: run { stop("authorized cipher unavailable"); return }
             operation = null
             decrypting = true
             val submitted = state.paymentWorker.submit(
                 work = {
                     if (!ended && currentFailure(state, config, sessionId, attemptId, activity) == null) {
-                        measureCrypto("decrypt") { PasswordCipher.decryptToCharArray(pending) }
+                        measureCrypto("decrypt") { PasswordCipher.decryptToCharArray(pending, authorized) }
                     } else null
                 },
                 cleanup = { pending.ciphertext.fill(0) },

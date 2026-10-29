@@ -24,6 +24,12 @@ import java.util.WeakHashMap
 class VisualPaymentMonitor(private val state: AppRuntime, private val adapter: VisualPaymentAdapter) {
     private val observers = WeakHashMap<ViewGroup, LayoutObserver>()
     private val screenState = PaymentScreenState<ViewGroup>()
+    /**
+     * Recognizing a payment screen walks the whole view tree. When a root did not match
+     * and its structure is unchanged, a short negative cache skips that walk entirely.
+     */
+    private val missedRoots = WeakHashMap<ViewGroup, MissedRoot>()
+    private class MissedRoot(val childCount: Int, val until: Long)
     @Volatile private var closed = false
     private val paymentExitCheck = object : Runnable {
         override fun run() {
@@ -53,7 +59,9 @@ class VisualPaymentMonitor(private val state: AppRuntime, private val adapter: V
             }
             if (isBusy()) {
                 screenState.screenAbsentTooLong(false, true, state.session.isInPaymentMode(), SystemClock.uptimeMillis())
-                if (SystemClock.uptimeMillis() < scanUntil) tasks.post(this, 350L)
+                // Authentication and auto-input own the screen; probing windows faster
+                // only burns main-thread time.
+                if (SystemClock.uptimeMillis() < scanUntil) tasks.post(this, BUSY_SCAN_INTERVAL_MS)
                 return
             }
             // Catch windows created during the first few layout frames. Later
@@ -159,6 +167,7 @@ class VisualPaymentMonitor(private val state: AppRuntime, private val adapter: V
             lastPaymentActivity = null
             for ((root, observer) in observers) observer.removeFrom(root)
             observers.clear()
+            missedRoots.clear()
             screenState.clear()
         }
     }
@@ -231,11 +240,18 @@ class VisualPaymentMonitor(private val state: AppRuntime, private val adapter: V
             }
             if (state.session.isAuthenticationInProgress()) return false
             val password = state.prefs.activePassword() ?: return false
+            val nowMs = SystemClock.uptimeMillis()
+            missedRoots[root]?.let { missed ->
+                if (missed.until > nowMs && missed.childCount == root.childCount) return false
+                missedRoots.remove(root)
+            }
             val screen = adapter.observe(root, activity)
             if (screen == null) {
+                missedRoots[root] = MissedRoot(root.childCount, nowMs + MISS_CACHE_MS)
                 if (screenState.keyboard()?.rootView === root && screenState.prompted) schedulePaymentExitCheck()
                 return false
             }
+            missedRoots.remove(root)
             tasks.cancel(paymentExitCheck)
             state.session.setInputEditText(screen.passwordInput)
             state.session.setConfirmButton(screen.confirmButton)
@@ -345,6 +361,8 @@ class VisualPaymentMonitor(private val state: AppRuntime, private val adapter: V
         const val PAYMENT_EXIT_GRACE_MS = 2_500L
         const val INITIAL_SCAN_MS = 5_000L
         const val INSPECTION_INTERVAL_MS = 250L
+        const val MISS_CACHE_MS = 300L
+        const val BUSY_SCAN_INTERVAL_MS = 1_000L
     }
 
 }

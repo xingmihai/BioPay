@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.application")
+    alias(libs.plugins.android.application)
 }
 
 import java.io.FileInputStream
@@ -72,7 +72,7 @@ android {
 }
 
 dependencies {
-    compileOnly("io.github.libxposed:api:102.0.0")
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("io.github.libxposed:api:102.0.0")
+    compileOnly(libs.libxposed.api)
+    testImplementation(libs.junit)
+    testImplementation(libs.libxposed.api)
 }

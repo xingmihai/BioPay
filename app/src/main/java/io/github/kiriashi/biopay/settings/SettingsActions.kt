@@ -19,6 +19,7 @@ import io.github.kiriashi.biopay.runtime.AppRuntime
 import io.github.kiriashi.biopay.settings.ui.M3Field
 import io.github.kiriashi.biopay.storage.PasswordCipher
 import io.github.kiriashi.biopay.storage.PasswordVersionPolicy
+import javax.crypto.Cipher
 
 object SettingsActions {
     fun loadSavedPassword(pwdInput: M3Field, state: AppRuntime) {
@@ -43,7 +44,7 @@ object SettingsActions {
                 PasswordVersionPolicy.requiresReentry(state.prefs.getEncodedPassword(), state.prefs.getPasswordVersion())) {
                 showToast(context, "请重新录入该应用的支付密码")
             } else if (!state.prefs.getEncodedPassword().isNullOrEmpty()) {
-                authenticateWithBiometric(context, host, state, biometricType = type) {
+                authenticateWithBiometric(context, host, state, biometricType = type) { _ ->
                     state.prefs.setBiometricMode(type)
                 }
             } else showToast(context, "请输入支付密码")
@@ -54,9 +55,23 @@ object SettingsActions {
             return
         }
         val chars = CharArray(password.length) { password[it] }
-        authenticateWithBiometric(context, host, state, biometricType = type, cleanup = { chars.fill('\u0000') }) {
-            val cipher = PasswordCipher.createEncryptionCipher(state.app, state.adapter.app.packageName)
-            state.prefs.savePassword(chars, cipher, PasswordVersionPolicy.current, type).isSuccess
+        // The Keystore key is bound to authentication, so the Cipher has to be created
+        // before the prompt and authorized by it before it can encrypt.
+        val cipher = try {
+            PasswordCipher.createEncryptionCipher(state.app, state.adapter.app.packageName)
+        } catch (error: Exception) {
+            ModuleLog.w(error) { "password encryption cipher unavailable" }
+            chars.fill('\u0000')
+            showToast(context, "无法启动加密，请重试")
+            return
+        }
+        authenticateWithBiometric(
+            context, host, state, biometricType = type,
+            cleanup = { chars.fill('\u0000') },
+            crypto = cipher
+        ) { authorized ->
+            val target = authorized ?: return@authenticateWithBiometric false
+            state.prefs.savePassword(chars, target, PasswordVersionPolicy.current, type).isSuccess
         }
     }
 
@@ -94,7 +109,8 @@ object SettingsActions {
         successMsg: String = "生物支付已启用",
         biometricType: Int = state.prefs.getBiometricType(),
         cleanup: () -> Unit = {},
-        onSuccess: () -> Boolean
+        crypto: Cipher? = null,
+        onSuccess: (Cipher?) -> Boolean
     ) {
         if (state.isClosed || !context.isValidActivity() || !dialogHost.isOpen || dialogHost.isBusy) {
             cleanup()
@@ -112,7 +128,16 @@ object SettingsActions {
             val callback = object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
                     if (!dialogHost.finishAuthentication(attemptId)) return
-                    save(context, dialogHost, state, successMsg, cleanup, expectedRevision, onSuccess)
+                    val authorized = result?.cryptoObject?.cipher
+                    if (crypto != null && authorized == null) {
+                        ModuleLog.w { "settings authentication returned no authorized cipher" }
+                        cleanup()
+                        showToast(context, "无法完成加密，请重试")
+                        return
+                    }
+                    save(context, dialogHost, state, successMsg, cleanup, expectedRevision) {
+                        onSuccess(authorized)
+                    }
                 }
                 override fun onAuthenticationError(code: Int, message: CharSequence?) {
                     if (!dialogHost.finishAuthentication(attemptId)) return
@@ -123,8 +148,15 @@ object SettingsActions {
                     }
                 }
             }
-            BiometricPromptPolicy.configure(builder, biometricType).build()
-                .authenticate(signal, context.mainExecutor, callback)
+            val prompt = BiometricPromptPolicy
+                .configure(builder, biometricType, requireCrypto = crypto != null).build()
+            if (crypto != null) {
+                prompt.authenticate(
+                    BiometricPrompt.CryptoObject(crypto), signal, context.mainExecutor, callback
+                )
+            } else {
+                prompt.authenticate(signal, context.mainExecutor, callback)
+            }
         } catch (error: Exception) {
             ModuleLog.d(error) { "settings authentication startup failed" }
             if (dialogHost.finishAuthentication(attemptId)) {

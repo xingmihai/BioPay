@@ -117,7 +117,7 @@ object SettingsDialog {
         val clearBtn = makeClearBtn(context, t)
         clearBtn.setOnLongClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-            SettingsActions.authenticateWithBiometric(context, dialogHost, state, "清除密码，生物支付已关闭") {
+            SettingsActions.authenticateWithBiometric(context, dialogHost, state, "清除密码，生物支付已关闭") { _ ->
                 SettingsActions.handleClearPassword(state)
             }
             true
