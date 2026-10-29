@@ -8,6 +8,7 @@ package io.github.kiriashi.biopay.biometric
 import android.app.Activity
 import android.hardware.biometrics.BiometricPrompt
 import android.os.SystemClock
+import android.view.Choreographer
 import android.view.View
 import android.view.ViewGroup
 import io.github.kiriashi.biopay.BuildConfig
@@ -167,6 +168,15 @@ object BiometricAuth {
         private var deadline = 0L
         private var lastWaitReason: String? = null
         private val retry = Runnable { continueInput() }
+        private var awaitingFrame = false
+        private val frameCheck = Runnable {
+            awaitingFrame = false
+            when {
+                ended -> Unit
+                SystemClock.uptimeMillis() >= deadline -> stop("input readiness timeout")
+                else -> continueInput()
+            }
+        }
 
         fun dispose() {
             ended = true
@@ -250,9 +260,20 @@ object BiometricAuth {
                 val hasFocus = root.hasWindowFocus() ||
                     (hostWindow?.isAttachedToWindow == true && hostWindow.hasWindowFocus())
                 if (root.windowVisibility != View.VISIBLE || !hasFocus || !keyboard.isShown) {
+                    // The keypad is hidden while authentication runs, so its visibility and
+                    // focus only settle once the next frame is laid out. Waiting for that
+                    // frame is both faster and more exact than polling on a fixed delay.
+                    if (!awaitingFrame && SystemClock.uptimeMillis() < deadline) {
+                        awaitingFrame = true
+                        tasks.onMain {
+                            Choreographer.getInstance().postFrameCallback { _ -> tasks.onMain(frameCheck) }
+                        }
+                        return
+                    }
                     waitForInput("payment window not ready")
                     return
                 }
+                awaitingFrame = false
                 when (val preparation = PasswordAutoInput.prepareInput(keyboard, state)) {
                     is PasswordAutoInput.Preparation.Waiting -> waitForInput(preparation.reason)
                     is PasswordAutoInput.Preparation.Rejected -> stop(preparation.reason)
