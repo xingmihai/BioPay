@@ -169,7 +169,7 @@ object BiometricAuth {
         private var lastWaitReason: String? = null
         private val retry = Runnable { continueInput() }
         private var awaitingFrame = false
-        private val frameCheck = Runnable {
+        private val frameCheck: () -> Unit = {
             awaitingFrame = false
             when {
                 ended -> Unit
