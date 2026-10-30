@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pr-${{ github.ref }}
@@ -37,36 +37,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        id: tests
-        continue-on-error: true
-        run: ./gradlew test --warning-mode fail > gradle.log 2>&1
-
-      - name: Publish log
-        if: steps.tests.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tail -n 200 gradle.log > ci-log.txt
-          python3 - <<'PY'
-          import os, json, base64, urllib.request
-          tok = os.environ["GH_TOKEN"]
-          repo = os.environ["GITHUB_REPOSITORY"]
-          hdr = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json"}
-          def req(m, u, d=None):
-              r = urllib.request.Request(u, method=m, headers=hdr,
-                                         data=json.dumps(d).encode() if d else None)
-              try:
-                  with urllib.request.urlopen(r) as x: return json.loads(x.read())
-              except urllib.error.HTTPError as e: return {"err": e.code}
-          if req("GET", f"https://api.github.com/repos/{repo}/git/ref/heads/ci-logs").get("err"):
-              req("POST", f"https://api.github.com/repos/{repo}/git/refs",
-                  {"ref": "refs/heads/ci-logs", "sha": os.environ["GITHUB_SHA"]})
-          content = base64.b64encode(open("ci-log.txt", "rb").read()).decode()
-          data = {"message": "ci log", "content": content, "branch": "ci-logs"}
-          cur = req("GET", f"https://api.github.com/repos/{repo}/contents/ci-log.txt?ref=ci-logs")
-          if isinstance(cur, dict) and cur.get("sha"): data["sha"] = cur["sha"]
-          print(req("PUT", f"https://api.github.com/repos/{repo}/contents/ci-log.txt", data))
-          PY
+        run: ./gradlew test --warning-mode fail
 
       - name: Run lint
         run: ./gradlew lintDebug --warning-mode fail

@@ -25,7 +25,6 @@ import io.github.kiriashi.biopay.payment.PaymentFlow
 import io.github.kiriashi.biopay.payment.PaymentWindowRoots
 import io.github.kiriashi.biopay.payment.PaymentSession
 import io.github.kiriashi.biopay.payment.VisualPaymentMonitor
-import io.github.kiriashi.biopay.core.log.ModuleLog
 import io.github.kiriashi.biopay.core.util.findActivity
 import io.github.kiriashi.biopay.storage.PrefKeys
 import io.github.kiriashi.biopay.storage.ConfigStore
