@@ -10,7 +10,7 @@
 [![Stars](https://img.shields.io/github/stars/xingmihai/BioPay?style=flat)](https://github.com/xingmihai/BioPay/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/Xposed-Modules-Repo/io.github.kiriashi.biopay/total?style=flat)](https://github.com/Xposed-Modules-Repo/io.github.kiriashi.biopay/releases)
 [![License](https://img.shields.io/github/license/xingmihai/BioPay?style=flat)](LICENSE)
-[![Android](https://img.shields.io/badge/Android-10%2B-green.svg?style=flat)](https://developer.android.com)
+[![Android](https://img.shields.io/badge/Android-17%2B-green.svg?style=flat)](https://developer.android.com)
 [![LSPosed](https://img.shields.io/badge/LSPosed-API%20102-purple.svg?style=flat)](https://github.com/LSPosed/LSPosed)
 [![Telegram](https://img.shields.io/badge/Telegram-交流群-blue.svg?style=flat)](https://t.me/biopaychat)
 
@@ -19,7 +19,7 @@
 
 ## 项目简介
 
-**BioPay** 是一个面向 Android 10+、基于 LSPosed 的支付辅助模块。它支持注入微信、支付宝、淘宝、QQ 和云闪付的应用进程，识别到对应的支付窗口后，通过安卓标准的 **BiometricPrompt** 接口发起系统生物认证，并在验证成功后解密、自动无感输入预先保存的六位支付密码。
+**BioPay** 是一个面向 Android 17+、基于 LSPosed 的支付辅助模块。它支持注入微信、支付宝、淘宝、QQ 和云闪付的应用进程，识别到对应的支付窗口后，通过安卓标准的 **BiometricPrompt** 接口发起系统生物认证，并在验证成功后解密、自动无感输入预先保存的六位支付密码。
 > [!WARNING]
 > 支付密码的解密密钥与系统身份认证绑定，只有 **Class 3（强）生物识别** 或锁屏密码能够解锁。仅达便利级标准（Class 2）的面容无法用于自动填充，请改用指纹或锁屏密码。
 
@@ -37,7 +37,7 @@
 
 ## 安装与设置
 
-**需要：** Android 10+ 版本、支持 LibXposed API 102 的 LSPosed，以及设备上已录入指纹或面容。
+**需要：** Android 17+ 版本、支持 LibXposed API 102 的 LSPosed，以及设备上已录入指纹或面容。
 
 1. 从 [Releases](https://github.com/Xposed-Modules-Repo/io.github.kiriashi.biopay/releases)或 **模块仓库** 下载并安装 APK。
 2. 在 LSPosed 中启用 BioPay，勾选需要使用的支付应用作用域。

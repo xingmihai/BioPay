@@ -22,7 +22,6 @@ package io.github.kiriashi.biopay.storage
 import io.github.kiriashi.biopay.core.log.ModuleLog
 import io.github.kiriashi.biopay.core.util.withFileLock
 import android.content.Context
-import android.os.Build
 import android.security.KeyStoreException
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -37,7 +36,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Encrypts the password with Keystore; biometric authorization is enforced by the payment flow. */
+/**
+ * Encrypts the password with Keystore using a key bound to user authentication, so the
+ * Cipher can only produce plaintext after BiometricPrompt has authorized it.
+ */
 object PasswordCipher {
 
     const val PASSWORD_LENGTH = 6
@@ -100,19 +102,31 @@ object PasswordCipher {
         // Auth-per-use: the Cipher stays locked until BiometricPrompt authorizes it,
         // so a successful authentication is a cryptographic prerequisite, not just a
         // step in the payment flow.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder.setUserAuthenticationParameters(
-                0,
-                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
-            )
-        } else {
-            builder.setUserAuthenticationRequired(true)
-        }
+        builder.setUserAuthenticationParameters(
+            0,
+            KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+        )
         generator.init(builder.build())
         return generator.generateKey()
     }
 
     fun isAppBoundCiphertext(encoded: String): Boolean = encoded.startsWith(BOUND_PREFIX)
+
+    /**
+     * Warms the Keystore connection and key material ahead of the first payment.
+     * The first `getKey()` in a process costs tens of milliseconds while keymaster
+     * starts up; paying that on a background thread at startup keeps it off the
+     * authentication path, where it would otherwise delay the biometric prompt.
+     */
+    fun prewarm(context: Context) {
+        runCatching {
+            synchronized(keyStoreLock) {
+                withFileLock(File(context.filesDir, "biopay_password_key.lock")) {
+                    getSecretKey(createIfMissing = true)
+                }
+            }
+        }.onFailure { ModuleLog.d(it) { "payment key prewarm skipped" } }
+    }
 
     private fun associatedData(packageName: String): ByteArray =
         "BioPay:payment-password:v1:$packageName".toByteArray(Charsets.UTF_8)
@@ -163,7 +177,7 @@ object PasswordCipher {
         repeat(16) {
             val cause = current ?: return false
             if (cause is KeyPermanentlyInvalidatedException || cause is UnavailableKeyException) return true
-            if (Build.VERSION.SDK_INT >= 33 && cause is KeyStoreException &&
+            if (cause is KeyStoreException &&
                 cause.numericErrorCode == KeyStoreException.ERROR_KEY_CORRUPTED) return true
             if (cause.javaClass.name == "android.security.KeyStoreException") {
                 // Public numeric codes combine KeyMint failures. Android's -33

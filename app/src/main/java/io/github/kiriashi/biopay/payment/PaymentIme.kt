@@ -5,7 +5,6 @@
  */
 package io.github.kiriashi.biopay.payment
 
-import android.os.Build
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -46,7 +45,7 @@ internal class PaymentIme : View.OnAttachStateChangeListener,
     }
     private val recheck = Runnable {
         recheckAt = 0L
-        enforce("recheck", force = Build.VERSION.SDK_INT < 30)
+        enforce("recheck", force = false)
     }
 
     fun update(keyboard: ViewGroup?, input: EditText?, block: Boolean, authentication: Boolean, force: Boolean = false) {
@@ -113,7 +112,7 @@ internal class PaymentIme : View.OnAttachStateChangeListener,
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         if (!blocked) return
-        enforce(if (hasFocus) "window focused" else "window unfocused", force = Build.VERSION.SDK_INT < 30)
+        enforce(if (hasFocus) "window focused" else "window unfocused", force = false)
         scheduleRecheck(RECHECK_DELAY_MS)
     }
 
@@ -219,7 +218,7 @@ internal class PaymentIme : View.OnAttachStateChangeListener,
         val root = rootRef?.get() ?: return
         if (!keyboard.isAttachedToWindow || !root.isAttachedToWindow || root.windowVisibility != View.VISIBLE) return
         lastCheck = SystemClock.uptimeMillis()
-        val visible = if (Build.VERSION.SDK_INT >= 30) root.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) else null
+        val visible = root.rootWindowInsets?.isVisible(WindowInsets.Type.ime())
         if (!force) {
             if (visible != true) return
             if (lastCheck < lastHide + HIDE_INTERVAL_MS) {
@@ -248,12 +247,10 @@ internal class PaymentIme : View.OnAttachStateChangeListener,
     }
 
     private fun requestVisibility(view: View, visible: Boolean) {
-        if (Build.VERSION.SDK_INT >= 30) {
-            view.windowInsetsController?.let { controller ->
-                if (visible) controller.show(WindowInsets.Type.ime())
-                else controller.hide(WindowInsets.Type.ime())
-                return
-            }
+        view.windowInsetsController?.let { controller ->
+            if (visible) controller.show(WindowInsets.Type.ime())
+            else controller.hide(WindowInsets.Type.ime())
+            return
         }
         val manager = view.context.getSystemService(InputMethodManager::class.java)
         if (visible) manager?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)

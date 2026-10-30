@@ -6,13 +6,11 @@
 package io.github.kiriashi.biopay.core.log
 
 import io.github.kiriashi.biopay.core.util.withFileLock
-import android.annotation.SuppressLint
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -41,8 +39,7 @@ internal class LogExport(
             if (closed || primary || intent.action != ACTION) return
             val request = intent.getStringExtra(REQUEST)?.takeIf { it.length == 36 } ?: return
             val signature = intent.getStringExtra(SIGNATURE)
-            val reply = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(REPLY, ResultReceiver::class.java)
-                else intent.getParcelableExtra<ResultReceiver>(REPLY)
+            val reply = intent.getParcelableExtra(REPLY, ResultReceiver::class.java)
             if (reply == null) return
             val pending = goAsync()
             if (!dispatch {
@@ -71,21 +68,10 @@ internal class LogExport(
     init {
         if (context.packageName == "com.tencent.mobileqq" && !primary) {
             runCatching {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    context.registerReceiver(receiver, IntentFilter(ACTION), Context.RECEIVER_NOT_EXPORTED)
-                } else {
-                    registerLegacyReceiver()
-                }
+                context.registerReceiver(receiver, IntentFilter(ACTION), Context.RECEIVER_NOT_EXPORTED)
                 registered = true
             }.onFailure { ModuleLog.w(it) { "diagnostic export receiver failed" } }
         }
-    }
-
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
-    private fun registerLegacyReceiver() {
-        // Android 10–12 lack RECEIVER_NOT_EXPORTED; signed requests authenticate the sender.
-        check(Build.VERSION.SDK_INT < 33)
-        context.registerReceiver(receiver, IntentFilter(ACTION))
     }
 
     fun export(onSaved: (List<String>) -> Unit) {

@@ -25,9 +25,11 @@ import io.github.kiriashi.biopay.payment.PaymentFlow
 import io.github.kiriashi.biopay.payment.PaymentWindowRoots
 import io.github.kiriashi.biopay.payment.PaymentSession
 import io.github.kiriashi.biopay.payment.VisualPaymentMonitor
+import io.github.kiriashi.biopay.core.log.ModuleLog
 import io.github.kiriashi.biopay.core.util.findActivity
 import io.github.kiriashi.biopay.storage.PrefKeys
 import io.github.kiriashi.biopay.storage.ConfigStore
+import io.github.kiriashi.biopay.storage.PasswordCipher
 
 /** Owns the collaborators and cleanup for one payment app process. */
 class AppRuntime private constructor(
@@ -45,6 +47,20 @@ class AppRuntime private constructor(
     val flow = PaymentFlow(this)
     val session = PaymentSession(onDestroy = flow::reset)
     internal val paymentWorker = PaymentWorker(app.mainExecutor)
+
+    init {
+        // Only the process that hosts the payment UI ever needs the key, so warming it
+        // elsewhere would just add startup work to processes that cannot pay.
+        if (Application.getProcessName() == app.packageName) {
+            paymentWorker.submit(
+                work = { PasswordCipher.prewarm(app) },
+                complete = { result ->
+                    ModuleLog.d { "payment key prewarm: success=${result.isSuccess}" }
+                }
+            )
+        }
+    }
+
     private val uiTasks = MainTasks()
     private val dialogs = IdentityHashMap<Activity, DialogHost>()
 

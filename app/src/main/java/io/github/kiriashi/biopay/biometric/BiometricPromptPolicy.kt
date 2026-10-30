@@ -20,7 +20,6 @@ package io.github.kiriashi.biopay.biometric
 
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
-import android.os.Build
 
 /** Keep settings verification and payment verification on the same authentication policy. */
 internal object BiometricPromptPolicy {
@@ -34,16 +33,14 @@ internal object BiometricPromptPolicy {
         biometricType: Int,
         requireCrypto: Boolean = false
     ): BiometricPrompt.Builder {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder.setAllowedAuthenticators(
-                if (requireCrypto || biometricType == BiometricType.FINGERPRINT) {
-                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                } else {
-                    BiometricManager.Authenticators.BIOMETRIC_WEAK
-                }
-            )
-        }
+        builder.setAllowedAuthenticators(
+            if (requireCrypto || biometricType == BiometricType.FINGERPRINT) {
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            } else {
+                BiometricManager.Authenticators.BIOMETRIC_WEAK
+            }
+        )
         if (biometricType == BiometricType.FACE) {
             builder.setConfirmationRequired(false)
         }

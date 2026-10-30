@@ -88,7 +88,11 @@ object PasswordAutoInput {
                 state.adapter.observe(root, activity) ?: return Preparation.Waiting("payment page not ready")
             } else null
         } finally {
-            ModuleLog.d { "payment input recognition: app=${state.adapter.app}, duration=${SystemClock.uptimeMillis() - started}ms" }
+            // Hook-based adapters never walk the view tree; reporting 0ms there reads as
+            // "recognized instantly" when in fact no recognition ran at all.
+            if (state.adapter is VisualPaymentAdapter) {
+                ModuleLog.d { "payment input recognition: app=${state.adapter.app}, duration=${SystemClock.uptimeMillis() - started}ms" }
+            }
         }
         val liveKeyboard = screen?.keyboard ?: keyboard
         if (liveKeyboard !== keyboard && (keyboard !== root || liveKeyboard.rootView !== root)) {

@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import io.github.kiriashi.biopay.apps.PaymentApp
@@ -76,11 +75,7 @@ internal class ConfigSync(
             }
         }.also { registered ->
             val filter = IntentFilter(ACTION_SETTINGS_CHANGED).apply { addAction(ACTION_SETTINGS_REQUEST) }
-            if (Build.VERSION.SDK_INT >= 33) {
-                context.registerReceiver(registered, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                context.registerReceiver(registered, filter)
-            }
+            context.registerReceiver(registered, filter, Context.RECEIVER_NOT_EXPORTED)
             receiverRegistered.set(true)
         }
     } else null
