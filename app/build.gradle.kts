@@ -19,12 +19,12 @@ fun signingValue(environmentName: String, propertyName: String, defaultValue: St
 
 android {
     namespace = "io.github.kiriashi.biopay"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "io.github.kiriashi.biopay"
-        minSdk = 36
-        targetSdk = 36
+        minSdk = 33
+        targetSdk = 35
         versionCode = 261007
         versionName = "2.3.0"
     }
