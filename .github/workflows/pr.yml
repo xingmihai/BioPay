@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pr-${{ github.ref }}
@@ -37,7 +37,20 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        run: ./gradlew test --warning-mode fail
+        id: tests
+        continue-on-error: true
+        run: ./gradlew test --warning-mode fail > gradle.log 2>&1
+
+      - name: Publish log
+        if: steps.tests.outcome == 'failure'
+        run: |
+          tail -n 200 gradle.log > ci-log.txt
+          cd /tmp && rm -rf lg && mkdir lg && cd lg
+          git init -q -b ci-logs .
+          cp "$GITHUB_WORKSPACE/ci-log.txt" .
+          git -c user.name=ci -c user.email=ci@example.com add -A
+          git -c user.email=ci@example.com -c user.name=ci commit -q -m "log $GITHUB_SHA"
+          git push -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-logs --force
 
       - name: Run lint
         run: ./gradlew lintDebug --warning-mode fail
