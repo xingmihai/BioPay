@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.kiriashi.biopay"
-        minSdk = 33
+        minSdk = 29
         targetSdk = 35
         versionCode = 261007
         versionName = "2.3.0"
