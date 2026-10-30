@@ -1,0 +1,41 @@
+name: Diagnose
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        id: tests
+        continue-on-error: true
+        run: ./gradlew test --warning-mode fail > gradle.log 2>&1
+
+      - name: Publish log
+        run: |
+          tail -n 200 gradle.log > ci-log.txt
+          cd /tmp && rm -rf lg && mkdir lg && cd lg
+          git init -q .
+          git checkout -q -b ci-logs
+          cp "$GITHUB_WORKSPACE/ci-log.txt" .
+          git -c user.name=ci -c user.email=ci@example.com add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -q -m "log ${GITHUB_SHA}"
+          git push -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-logs --force
