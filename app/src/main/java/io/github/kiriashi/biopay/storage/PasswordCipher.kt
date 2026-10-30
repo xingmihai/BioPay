@@ -23,8 +23,6 @@ import io.github.kiriashi.biopay.core.log.ModuleLog
 import io.github.kiriashi.biopay.core.util.withFileLock
 import android.content.Context
 import android.security.KeyStoreException
-import io.github.kiriashi.biopay.BuildConfig
-import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
@@ -113,39 +111,6 @@ object PasswordCipher {
     }
 
     fun isAppBoundCiphertext(encoded: String): Boolean = encoded.startsWith(BOUND_PREFIX)
-
-    /**
-     * Warms the Keystore and the decryption Cipher ahead of the first payment.
-     *
-     * The cost is not in [getSecretKey] but in [Cipher.init], which is where keymaster
-     * starts up and the AES-GCM decryption context is built. That work used to happen
-     * between the payment keyboard appearing and the biometric prompt, where the user
-     * waits on it. Doing it once at process start moves it off that path.
-     *
-     * Like the real call, init succeeds while the key is auth-bound; only doFinal
-     * requires authentication. The warmed Cipher is discarded without ever decrypting.
-     */
-    fun prewarm(context: Context) {
-        val started = if (BuildConfig.DEBUG) SystemClock.uptimeMillis() else 0L
-        val outcome = runCatching {
-            synchronized(keyStoreLock) {
-                withFileLock(File(context.filesDir, "biopay_password_key.lock")) {
-                    Cipher.getInstance(TRANSFORMATION).apply {
-                        // A zero IV is fine here: init only builds the context and nothing
-                        // is ever decrypted from this Cipher.
-                        init(Cipher.DECRYPT_MODE, getSecretKey(createIfMissing = true),
-                            GCMParameterSpec(GCM_TAG_LENGTH, ByteArray(IV_LENGTH)))
-                        updateAAD(associatedData(context.packageName))
-                    }
-                }
-            }
-        }
-        if (BuildConfig.DEBUG) {
-            val elapsed = SystemClock.uptimeMillis() - started
-            outcome.onFailure { ModuleLog.d(it) { "payment key prewarm failed: ${elapsed}ms" } }
-                .onSuccess { ModuleLog.d { "payment key prewarm: success=true, ${elapsed}ms" } }
-        }
-    }
 
     private fun associatedData(packageName: String): ByteArray =
         "BioPay:payment-password:v1:$packageName".toByteArray(Charsets.UTF_8)
