@@ -115,6 +115,11 @@ object SettingsDialog {
         setPwdEnabled(pwdInput, fpOn || faceOn)
 
         val clearBtn = makeClearBtn(context, t)
+        // Clearing is intentionally long-press only; a short tap used to do nothing at
+        // all, which read as a broken button. Explain the gesture instead.
+        clearBtn.setOnClickListener {
+            SettingsActions.showToast(context, "长按清除密码")
+        }
         clearBtn.setOnLongClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             SettingsActions.authenticateWithBiometric(context, dialogHost, state, "清除密码，生物支付已关闭") { _ ->
